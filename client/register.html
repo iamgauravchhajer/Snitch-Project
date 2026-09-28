@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register — Snitch</title>
+    <meta name="description" content="Create your Snitch account and start shopping." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="navbar-brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Snitch</a>
+    <ul class="navbar-nav">
+        <li><a href="index.html">Home</a></li>
+    </ul>
+</nav>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h2>Create account</h2>
+        <p>Join Snitch and start shopping</p>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" id="name" class="form-control" placeholder="Your name" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" placeholder="you@example.com" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Min 6 characters" required minlength="6" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" id="confirmPassword" class="form-control" placeholder="Re-enter password" required minlength="6" />
+            </div>
+            <div id="formError" class="form-error" style="margin-bottom:10px"></div>
+            <button type="submit" class="btn btn-primary btn-full" id="registerBtn">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="login.html">Login</a>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { api, getUser } from './assets/js/api.js';
+
+if (getUser()) location.href = 'index.html';
+
+function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('registerBtn');
+    const errEl = document.getElementById('formError');
+    errEl.textContent = '';
+
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) {
+        errEl.textContent = 'Passwords do not match';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+        await api.auth.register({
+            name,
+            email,
+            password,
+            confirmPassword
+        });
+        toast('Account created successfully! Please login.', 'success');
+        setTimeout(() => location.href = 'login.html', 1200);
+    } catch (err) {
+        if (err.errors && Array.isArray(err.errors)) {
+            errEl.textContent = err.errors.map(e => e.msg || e.message).join(', ');
+        } else {
+            errEl.textContent = err.message || 'Registration failed';
+        }
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+    }
+});
+</script>
+</body>
+</html>

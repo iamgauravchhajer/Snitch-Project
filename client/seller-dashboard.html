@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seller Dashboard — Snitch</title>
+    <meta name="description" content="Manage your products on Snitch." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="navbar-brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Snitch</a>
+    <ul class="navbar-nav">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="profile.html"><span id="navName"></span></a></li>
+        <li><button id="logoutBtn" style="padding:8px 16px;border-radius:8px;font-size:0.9rem;font-weight:600;font-family:inherit;cursor:pointer;border:none;color:white;background:var(--danger)">Logout</button></li>
+    </ul>
+</nav>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="container page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:1rem">
+        <div>
+            <h1 style="font-size:1.8rem;font-weight:700">Seller Dashboard</h1>
+            <p style="color:var(--muted)">Manage and list your products</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">Add Product</button>
+    </div>
+
+    <div class="dashboard-stats">
+        <div class="stat-card"><div class="stat-icon"></div><div class="stat-value" id="totalCount">—</div><div class="stat-label">Total Products</div></div>
+        <div class="stat-card"><div class="stat-icon">Listed</div><div class="stat-value" id="listedCount">—</div><div class="stat-label">Listed</div></div>
+        <div class="stat-card"><div class="stat-icon">Unlisted</div><div class="stat-value" id="unlistedCount">—</div><div class="stat-label">Unlisted</div></div>
+    </div>
+
+    <div class="table-wrap" id="tableWrap">
+        <div class="loader"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal" style="display:none">
+    <div class="modal-box" style="max-width:520px">
+        <h3>Add New Product</h3>
+        <form id="productForm">
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input type="text" id="p_title" class="form-control" placeholder="Product title" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="p_desc" class="form-control" rows="3" placeholder="Min 20 characters" required style="resize:vertical"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+                <div class="form-group">
+                    <label class="form-label">Price (INR)</label>
+                    <input type="number" id="p_price" class="form-control" placeholder="0" required min="1" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Images</label>
+                    <input type="file" id="p_images" class="form-control" accept="image/*" multiple style="padding:6px" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sizes & Stock</label>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">XS</div>
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">S</div>
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">M</div>
+                    <input type="number" class="form-control size-stock" data-size="XS" placeholder="0" min="0" style="text-align:center" />
+                    <input type="number" class="form-control size-stock" data-size="S" placeholder="0" min="0" style="text-align:center" />
+                    <input type="number" class="form-control size-stock" data-size="M" placeholder="0" min="0" style="text-align:center" />
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">L</div>
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">XL</div>
+                    <div style="text-align:center;font-size:0.8rem;font-weight:600;color:var(--muted)">XXL</div>
+                    <input type="number" class="form-control size-stock" data-size="L" placeholder="0" min="0" style="text-align:center" />
+                    <input type="number" class="form-control size-stock" data-size="XL" placeholder="0" min="0" style="text-align:center" />
+                    <input type="number" class="form-control size-stock" data-size="XXL" placeholder="0" min="0" style="text-align:center" />
+                </div>
+            </div>
+            <div id="modalError" class="form-error" style="margin-bottom:8px"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Create Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="module">
+import { api, getUser, setUser, clearAuth, getToken } from './assets/js/api.js';
+
+function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+async function init() {
+    const localUser = getUser();
+    if (!localUser) { location.href = 'login.html'; return; }
+
+    try {
+        const data = await api.auth.me();
+        const freshUser = data.userData;
+        setUser(freshUser);
+
+        if (freshUser.role !== 'seller') {
+            toast('Access denied. Seller account required.', 'error');
+            setTimeout(() => location.href = 'index.html', 1500);
+            return;
+        }
+
+        document.getElementById('navName').textContent = freshUser.name;
+        loadProducts();
+    } catch (e) {
+        clearAuth();
+        location.href = 'login.html';
+    }
+}
+
+document.getElementById('logoutBtn').onclick = async () => {
+    try { await api.auth.logout(); } catch(_) {}
+    clearAuth();
+    location.href = 'index.html';
+};
+
+window.openModal = () => {
+    document.getElementById('modal').style.display = 'flex';
+    document.getElementById('modalError').textContent = '';
+    document.getElementById('productForm').reset();
+};
+window.closeModal = () => document.getElementById('modal').style.display = 'none';
+document.getElementById('modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+let products = [];
+
+async function loadProducts() {
+    const wrap = document.getElementById('tableWrap');
+    wrap.innerHTML = '<div class="loader"></div>';
+    try {
+        const data = await api.products.getSellerProducts();
+        products = data.products || [];
+        updateStats();
+        renderTable();
+    } catch (e) {
+        wrap.innerHTML = `<div class="empty-state"><div class="icon"></div><h3>Could not load products</h3><p>${e.message || ''}</p></div>`;
+    }
+}
+
+function updateStats() {
+    document.getElementById('totalCount').textContent = products.length;
+    document.getElementById('listedCount').textContent = products.filter(p => p.published).length;
+    document.getElementById('unlistedCount').textContent = products.filter(p => !p.published).length;
+}
+
+function renderTable() {
+    const wrap = document.getElementById('tableWrap');
+    if (!products.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="icon"></div><h3>No products yet</h3><p>Click "Add Product" to get started</p></div>`;
+        return;
+    }
+    wrap.innerHTML = `
+        <table>
+            <thead>
+                <tr><th>Product</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                ${products.map(p => `
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px">
+                                ${p.images?.[0]
+                                    ? `<img src="${p.images[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" />`
+                                    : `<div style="width:44px;height:44px;background:var(--light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">No Image</div>`
+                                }
+                                <div>
+                                    <div style="font-weight:600;font-size:0.9rem">${p.title}</div>
+                                    <div style="font-size:0.78rem;color:var(--muted)">${(p.description || '').slice(0, 45)}...</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-weight:700;color:var(--primary)">₹${p.price?.amount}</td>
+                        <td>
+                            <span class="tag ${p.published ? 'tag-success' : 'tag-accent'}">
+                                ${p.published ? 'Listed' : 'Unlisted'}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                                ${p.published
+                                    ? `<button class="btn btn-sm btn-ghost" onclick="toggleList('${p._id}', false)">Unlist</button>`
+                                    : `<button class="btn btn-sm btn-primary" onclick="toggleList('${p._id}', true)">List</button>`
+                                }
+                                <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p._id}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+window.toggleList = async (id, list) => {
+    try {
+        const endpoint = list ? `/products/list/${id}` : `/products/unlist/${id}`;
+        const token = getToken();
+        const res = await fetch(`http://localhost:3000/api${endpoint}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` },
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed');
+        toast(list ? 'Product listed' : 'Product unlisted', 'success');
+        loadProducts();
+    } catch (e) {
+        toast(e.message || 'Action failed', 'error');
+    }
+};
+
+window.deleteProduct = async (id) => {
+    if (!confirm('Delete this product?')) return;
+    try {
+        await api.products.delete(id);
+        toast('Product deleted Delete', 'success');
+        loadProducts();
+    } catch (e) {
+        toast(e.message || 'Delete failed', 'error');
+    }
+};
+
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    const errEl = document.getElementById('modalError');
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    const sizes = [];
+    document.querySelectorAll('.size-stock').forEach(input => {
+        const stock = parseInt(input.value) || 0;
+        if (stock > 0) sizes.push({ size: input.dataset.size, stock });
+    });
+
+    const formData = new FormData();
+    formData.append('title', document.getElementById('p_title').value);
+    formData.append('description', document.getElementById('p_desc').value);
+    formData.append('price', JSON.stringify({ amount: Number(document.getElementById('p_price').value), currency: 'INR' }));
+    formData.append('sizes', JSON.stringify(sizes));
+
+    const files = document.getElementById('p_images').files;
+    for (const file of files) formData.append('images', file);
+
+    try {
+        await api.products.create(formData);
+        toast('Product created!', 'success');
+        closeModal();
+        loadProducts();
+    } catch (e) {
+        errEl.textContent = e.message || 'Failed to create product';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Product';
+    }
+});
+
+init();
+</script>
+</body>
+</html>

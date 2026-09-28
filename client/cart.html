@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cart — Snitch</title>
+    <meta name="description" content="Your shopping cart." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="navbar-brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Snitch</a>
+    <ul class="navbar-nav" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="cart.html" class="cart-icon">Cart</a></li>
+        <li id="navAuth"></li>
+    </ul>
+</nav>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="container page">
+    <div class="page-header">
+        <h1>Your Cart</h1>
+    </div>
+    <div id="cartContent">
+        <div class="loader"></div>
+    </div>
+</div>
+
+<script type="module">
+import { api, getUser } from './assets/js/api.js';
+
+const user = getUser();
+document.getElementById('navAuth').innerHTML = user
+    ? `<a href="profile.html">${user.name}</a>`
+    : `<a href="login.html" class="btn-primary">Login</a>`;
+
+function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+const cartContent = document.getElementById('cartContent');
+
+if (!user) {
+    cartContent.innerHTML = `
+        <div class="empty-state">
+            <div class="icon"></div>
+            <h3>Please login to view cart</h3>
+            <a href="login.html" class="btn btn-primary" style="margin-top:1rem">Login</a>
+        </div>`;
+} else {
+    loadCart();
+}
+
+async function loadCart() {
+    try {
+        const data = await api.cart.get();
+        const items = data.cart?.products || [];
+        if (!items.length) {
+            cartContent.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon"></div>
+                    <h3>Your cart is empty</h3>
+                    <a href="index.html" class="btn btn-primary" style="margin-top:1rem">Continue Shopping</a>
+                </div>`;
+            return;
+        }
+
+        let total = 0;
+        const itemsHTML = items.map(item => {
+            const price = item.product?.price?.amount || 0;
+            const qty = item.quantity || 1;
+            total += price * qty;
+            const img = item.product?.images?.[0];
+            const title = item.product?.title || 'Product';
+            return `
+                <div class="cart-item">
+                    <div class="cart-item-img">
+                        ${img ? `<img src="${img}" alt="${item.product?.title}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />` : 'No Image'}
+                    </div>
+                    <div class="cart-item-info">
+                        <div class="cart-item-title">${title}</div>
+                        <div class="cart-item-meta">Size: ${item.size || 'N/A'} &nbsp;•&nbsp; Qty: ${qty}</div>
+                    </div>
+                    <div class="cart-item-price">₹${price * qty}</div>
+                </div>
+            `;
+        }).join('');
+
+        cartContent.innerHTML = `<div class="card" style="overflow:hidden">${itemsHTML}</div>`;
+    } catch (e) {
+        cartContent.innerHTML = `<div class="empty-state"><div class="icon"></div><h3>Could not load cart</h3></div>`;
+    }
+}
+
+window.checkout = () => {
+    toast('Order placed! Thank you ', 'success');
+    setTimeout(() => location.href = 'index.html', 2000);
+};
+</script>
+</body>
+</html>

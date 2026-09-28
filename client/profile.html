@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile — Snitch</title>
+    <meta name="description" content="Your Snitch profile." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+        .profile-wrap {
+            min-height: calc(100vh - 64px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .profile-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+        }
+        .avatar-wrap {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: var(--light);
+            border: 2px solid var(--border);
+            margin: 0 auto 1.4rem;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .avatar-wrap svg { display: block; }
+        .profile-name { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+        .profile-email { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+        .profile-divider { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+        .profile-row { display: flex; justify-content: space-between; font-size: 0.88rem; padding: 4px 0; }
+        .profile-row span:first-child { color: var(--muted); }
+        .profile-row span:last-child { font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        Snitch
+    </a>
+    <ul class="navbar-nav">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="cart.html">Cart</a></li>
+        <li><button id="logoutBtn" style="padding:8px 16px;border-radius:8px;font-size:0.9rem;font-weight:600;font-family:inherit;cursor:pointer;border:none;color:white;background:var(--danger)">Logout</button></li>
+    </ul>
+</nav>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="profile-wrap">
+    <div class="profile-card" id="profileCard">
+        <div style="color:var(--muted);font-size:0.9rem">Loading...</div>
+    </div>
+</div>
+
+<script type="module">
+import { api, getUser, clearAuth } from './assets/js/api.js';
+
+if (!getUser()) location.href = 'login.html';
+
+function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+document.getElementById('logoutBtn').onclick = async () => {
+    try { await api.auth.logout(); } catch (_) {}
+    clearAuth();
+    toast('Logged out', 'info');
+    setTimeout(() => location.href = 'index.html', 800);
+};
+
+const avatarSVG = `
+<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="28" cy="22" r="11" fill="#C4C4D4"/>
+  <ellipse cx="28" cy="46" rx="18" ry="11" fill="#C4C4D4"/>
+</svg>`;
+
+async function loadProfile() {
+    const card = document.getElementById('profileCard');
+    try {
+        const data = await api.auth.me();
+        const u = data.userData;
+        card.innerHTML = `
+            <div class="avatar-wrap">${avatarSVG}</div>
+            <div class="profile-name">${u.name}</div>
+            <div class="profile-email">${u.email}</div>
+            <hr class="profile-divider" />
+            <div class="profile-row"><span>Role</span><span>${u.role === 'seller' ? 'Seller' : 'Buyer'}</span></div>
+        `;
+    } catch (e) {
+        card.innerHTML = `<p style="color:var(--danger)">Could not load profile.</p>`;
+    }
+}
+
+loadProfile();
+</script>
+</body>
+</html>

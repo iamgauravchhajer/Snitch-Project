@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snitch — Shop the Latest</title>
+    <meta name="description" content="Discover the latest fashion trends at Snitch. Shop clothing, accessories and more." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="navbar-brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Snitch</a>
+    <ul class="navbar-nav" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="cart.html">Cart</a></li>
+        <li id="navAuth"></li>
+    </ul>
+</nav>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="container page" id="products">
+    <div class="page-header">
+        <h1>All Products</h1>
+        <p>Discover our latest collection</p>
+    </div>
+
+    <div id="productGrid" class="product-grid">
+        <div class="loader"></div>
+    </div>
+</div>
+
+<script type="module">
+import { api, getUser } from './assets/js/api.js';
+
+const user = getUser();
+const navAuth = document.getElementById('navAuth');
+
+if (user) {
+    navAuth.innerHTML = user.role === 'seller'
+        ? `<a href="seller-dashboard.html" class="btn-primary" style="padding:8px 16px;border-radius:8px;font-size:0.9rem;font-weight:600;background:var(--accent);color:white">Dashboard</a>`
+        : `<a href="profile.html">${user.name}</a>`;
+} else {
+    navAuth.innerHTML = `<a href="login.html" class="btn-primary">Login</a>`;
+}
+
+async function loadProducts() {
+    const grid = document.getElementById('productGrid');
+    try {
+        const data = await api.products.getAll();
+        const products = data.products || [];
+        if (!products.length) {
+            grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>No products yet</h3><p>Check back soon!</p></div>`;
+            return;
+        }
+        grid.innerHTML = products.map(p => `
+            <div class="card product-card" onclick="location.href='product.html?id=${p._id}'">
+                ${p.images && p.images[0]
+                    ? `<img class="product-img" src="${p.images[0]}" alt="${p.title}" onerror="this.style.display='none'" />`
+                    : `<div class="product-img-placeholder">No Image</div>`
+                }
+                <div class="product-body">
+                    <div class="product-title">${p.title}</div>
+                    <div class="product-price">₹${p.price?.amount} <span class="product-currency">${p.price?.currency || ''}</span></div>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>Could not load products</h3></div>`;
+    }
+}
+
+loadProducts();
+</script>
+</body>
+</html>

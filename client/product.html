@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product — Snitch</title>
+    <meta name="description" content="View product details and add to cart." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 01-8 0" />
+            </svg> Snitch</a>
+        <ul class="navbar-nav" id="navLinks">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="cart.html" class="cart-icon">Cart</a></li>
+            <li id="navAuth"></li>
+        </ul>
+    </nav>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="container page" id="pageContent">
+        <div class="loader"></div>
+    </div>
+
+    <script type="module">
+        import { api, getUser, clearAuth } from './assets/js/api.js';
+
+        const user = getUser();
+        document.getElementById('navAuth').innerHTML = user
+            ? `<a href="profile.html">${user.name}</a>`
+            : `<a href="login.html" class="btn-primary">Login</a>`;
+
+        function toast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `toast toast-${type}`;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        const content = document.getElementById('pageContent');
+        let selectedSize = null;
+        let selectedQty = 1;
+        let product = null;
+
+        if (!id) {
+            content.innerHTML = `<div class="empty-state"><div class="icon"></div><h3>Product not found</h3><a href="index.html" class="btn btn-primary" style="margin-top:1rem">Go Home</a></div>`;
+        } else {
+            loadProduct();
+        }
+
+        async function loadProduct() {
+            try {
+                const data = await api.products.getById(id);
+                product = data.product;
+                renderProduct();
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state"><div class="icon"></div><h3>Could not load product</h3></div>`;
+            }
+        }
+
+        function renderProduct() {
+            const images = product.images || [];
+            const sizes = product.sizes || [];
+
+            content.innerHTML = `
+        <a href="index.html" style="color:var(--muted);font-size:0.9rem;display:inline-flex;align-items:center;gap:4px;margin-bottom:1.5rem">Back to shop</a>
+        <div class="product-detail">
+            <div class="product-images">
+                ${images.length
+                    ? `<img class="main-image" id="mainImage" src="${images[0]}" alt="${product.title}" />`
+                    : `<div class="main-image" style="display:flex;align-items:center;justify-content:center;font-size:6rem;background:var(--light)">No Image</div>`
+                }
+                ${images.length > 1 ? `<div class="image-thumbnails">${images.map((img, i) => `<img class="thumb ${i === 0 ? 'active' : ''}" src="${img}" alt="img ${i + 1}" onclick="switchImage('${img}', this)" />`).join('')}</div>` : ''}
+            </div>
+            <div class="product-info">
+                <h1>${product.title}</h1>
+                <div class="price">₹${product.price?.amount}</div>
+                <p class="product-desc">${product.description}</p>
+
+                ${sizes.length ? `
+                <div class="sizes-label">Select Size</div>
+                <div class="size-options">
+                    ${sizes.map(s => `
+                        <button class="size-btn" ${s.stock === 0 ? 'disabled' : ''} onclick="selectSize('${s.size}', ${s.stock}, this)">
+                            ${s.size}
+                            ${s.stock === 0 ? '<br><small style="font-weight:400;font-size:0.65rem">Out</small>' : ''}
+                        </button>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <div class="sizes-label" style="margin-bottom:8px">Quantity</div>
+                <div style="display:flex;align-items:center;gap:0;margin-bottom:1.5rem;width:fit-content;border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+                    <button onclick="changeQty(-1)" style="width:40px;height:40px;border:none;background:var(--light);font-size:1.2rem;cursor:pointer;font-family:inherit;font-weight:700;color:var(--text)">−</button>
+                    <span id="qtyDisplay" style="width:48px;text-align:center;font-weight:700;font-size:1rem;border-left:1.5px solid var(--border);border-right:1.5px solid var(--border);height:40px;display:flex;align-items:center;justify-content:center">1</span>
+                    <button onclick="changeQty(1)" style="width:40px;height:40px;border:none;background:var(--light);font-size:1.2rem;cursor:pointer;font-family:inherit;font-weight:700;color:var(--text)">+</button>
+                </div>
+
+                <button class="btn btn-primary" id="addCartBtn" onclick="addToCart()" style="margin-right:10px">
+                    Add to Cart
+                </button>
+                <button class="btn btn-ghost" onclick="location.href='cart.html'">View Cart</button>
+            </div>
+        </div>
+    `;
+        }
+
+        window.switchImage = (src, el) => {
+            document.getElementById('mainImage').src = src;
+            document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+        };
+
+        window.selectSize = (size, stock, el) => {
+            selectedSize = size;
+            selectedQty = 1;
+            document.getElementById('qtyDisplay').textContent = 1;
+            document.querySelectorAll('.size-btn:not(:disabled)').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            el.dataset.stock = stock;
+        };
+
+        window.changeQty = (delta) => {
+            const sizes = product.sizes || [];
+            let maxStock = 99;
+            if (selectedSize) {
+                const s = sizes.find(s => s.size === selectedSize);
+                if (s) maxStock = s.stock;
+            }
+            selectedQty = Math.max(1, Math.min(selectedQty + delta, maxStock));
+            document.getElementById('qtyDisplay').textContent = selectedQty;
+        };
+
+        window.addToCart = async () => {
+            if (!user) { toast('Please login to add to cart', 'error'); setTimeout(() => location.href = 'login.html', 1000); return; }
+            const sizes = product.sizes || [];
+            if (sizes.length && !selectedSize) { toast('Please select a size', 'error'); return; }
+            const btn = document.getElementById('addCartBtn');
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+            try {
+                await api.cart.add({ productId: product._id, size: selectedSize || sizes[0]?.size, quantity: selectedQty });
+                toast(`Added ${selectedQty} item(s) to cart! `, 'success');
+                btn.textContent = 'Added!';
+                setTimeout(() => { btn.disabled = false; btn.innerHTML = 'Add to Cart'; }, 2000);
+            } catch (e) {
+                toast(e.message || 'Failed to add', 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Add to Cart';
+            }
+        };
+    </script>
+</body>
+
+</html>
